@@ -1,0 +1,52 @@
+# DO NOT FORGET TO Change the scriptname variable before running or it will be use the default name of unnamed.log
+
+# YOU HAVE BEEN WARNED
+
+$ScriptName = "Unnamed"
+
+# Define the log file path
+$logFolderPath = "C:\Windows\Logs\Scripts"
+$logFilePath   = Join-Path $logFolderPath "$ScriptName.log"
+$LogComponent  = "$ScriptName"
+
+if (-not (Test-Path -LiteralPath $logFolderPath)) {
+    New-Item -Path $logFolderPath -ItemType Directory -Force | Out-Null
+}
+
+function Write-Log {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Message,
+
+        # Default severity is 1, which is "info" below the default severity numbers are listed and the -severity switch can be added if required
+        [ValidateRange(0,3)]
+        [int]$Severity = 1  
+    )
+
+
+    # Get current date and time for the logging... CMTrace/OneTrace don't play nice with UK layout so it has to be US or it breaks
+    $now  = Get-Date
+    $time = $now.ToString('HH:mm:ss.fff')
+    $date = $now.ToString('MM-dd-yyyy')
+
+    # Set variables for severity (colour in CMTrace) and label for each log line
+    $type = switch ($Severity) { 2 {2} 3 {3} default {1} }
+    $label = switch ($Severity) { 0 {'SUCCESS'} 1 {'INFO'} 2 {'WARN'} 3 {'ERROR'} }
+
+    # Write info to log
+    $line = '<![LOG[{0}]LOG]!><time="{1}" date="{2}" component="{3}" context="" type="{4}" thread="{5}" file="">' -f `
+            $Message, $time, $date, $script:LogComponent, $type, $PID
+
+    Add-Content -LiteralPath $script:logFilePath -Value $line -Encoding UTF8
+
+    # Write the output in a more standard terminal format as well as into the log, this is useful for Intune as it will show in the GUI for scripts 
+    Write-Output ('{0} [{1}] - {2}' -f $now.ToString('dd-MM-yyyy HH:mm:ss'), $label, $Message)
+}
+
+# The below is optional, but I think its handy... Adds a default opening line before any other logs containing the scriptname and time. This makes searching for how often a script has run or what time it did easier as you can search the log by the scriptname
+
+$now = Get-Date
+$startTime = $now.ToString('HH:mm:ss')
+
+Write-Log "Log name: '$ScriptName' - started at $startTime"
+
